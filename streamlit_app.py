@@ -9,6 +9,10 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
 * { font-family: 'Cairo', sans-serif !important; }
+/* keep Streamlit's icon font (eye icon in the password box, etc.) */
+[data-testid="stIconMaterial"], [class*="material-symbols"], [class*="material-icons"],
+span[data-testid="stIconMaterial"] * {
+    font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important; }
 header[data-testid="stHeader"], footer, #MainMenu, [data-testid="stDecoration"],
 [data-testid="stToolbar"], [data-testid="stStatusWidget"] { display: none !important; }
 html, body, [data-testid="stApp"] { background-color: #F0F7F1 !important; }
