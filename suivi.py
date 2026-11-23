@@ -97,6 +97,26 @@ def _start_of_delivery(history, stopdesk):
     return None
 
 
+CANCEL_REASON_AR = {
+    "annulé par le client": "الزبون ألغى الطلبية",
+    "client absent": "الزبون غائب",
+    "client ne répond pas": "الزبون لا يرد",
+    "client injoignable": "لا يمكن الوصول للزبون",
+    "refusé": "رفض الاستلام",
+    "refus": "رفض الاستلام",
+    "adresse erronée": "العنوان خاطئ",
+    "numéro erroné": "الرقم خاطئ",
+}
+
+
+def _reason_ar(comment):
+    c = str(comment or "").strip().rstrip(".")
+    for fr, ar in CANCEL_REASON_AR.items():
+        if fr in c.lower():
+            return f"{ar} ({c})"
+    return c
+
+
 def _last_situation(history):
     best = None
     for e in history:
@@ -107,6 +127,20 @@ def _last_situation(history):
         return "", "", None
     slug = best.get("situationSlug") or ""
     return slug, SITUATION_AR.get(slug, best.get("situationName") or slug), _ts(best.get("createdAt"))
+
+
+def _last_cancel(history):
+    """(True, reason) if the driver recorded a cancellation, else (False, '')."""
+    found = None
+    for e in history:
+        for s in e.get("situations") or []:
+            if (s.get("situationSlug") or "") in ("commande_anullee", "commande_annulee"):
+                if not found or (s.get("createdAt") or "") > (found.get("createdAt") or ""):
+                    found = s
+    if not found:
+        return False, ""
+    comment = ((found.get("metadata") or {}).get("comment")) or found.get("situationDescription") or ""
+    return True, _reason_ar(comment)
 
 
 def _wa_number(phone):
@@ -180,22 +214,25 @@ def build_suivi(sheet_name="Branded Store Orders", tab_name="Orders"):
             "tracking": parcel.get("trackingNumber") if parcel else get(row, "trk"),
             "zr_state": _state(parcel) if parcel else "", "day": 0, "start": None,
             "situation": "", "situation_ar": "", "situation_at": None,
+            "cancelled": False, "cancel_reason": "",
             "level": "transit", "priority": 90,
         }
         if not parcel:
-            card.update(level="missing", priority=95)
-        elif _is_delivered(parcel) or _is_return(parcel):
-            continue  # handled by the "Update Status" button
+            continue  # not in ZR → not shown in Suivi
+        if _is_delivered(parcel) or _is_return(parcel) or _state(parcel) == "commande_recue":
+            continue  # delivered/returned → "Update Status"; commande_recue → not shipped yet
         else:
             st_name = _state(parcel)
             created = _ts(parcel.get("createdAt"))
-            if st_name in ("pret_a_expedier", "commande_recue") and created and (now - created).days >= 3:
+            if st_name == "pret_a_expedier" and created and (now - created).days >= 3:
                 card.update(level="stuck", priority=80)
             if st_name in ("sortie_en_livraison", "en_livraison", "confirme_au_bureau", "vers_wilaya"):
                 hist = _history(parcel["id"])
                 start = _start_of_delivery(hist, stopdesk)
                 slug, sit_ar, sit_at = _last_situation(hist)
-                card.update(situation=slug, situation_ar=sit_ar, situation_at=sit_at)
+                cancelled, reason = _last_cancel(hist)
+                card.update(situation=slug, situation_ar=sit_ar, situation_at=sit_at,
+                            cancelled=cancelled, cancel_reason=reason)
                 if start:
                     day = (now.date() - start.date()).days + 1
                     level = {1: "day1", 2: "day2"}.get(day, "day3" if day == MAX_DAYS else "late")
@@ -203,6 +240,8 @@ def build_suivi(sheet_name="Branded Store Orders", tab_name="Orders"):
                     if slug in URGENT_SITUATIONS:
                         prio -= 4
                     card.update(day=day, start=start, level=level, priority=prio)
+                if cancelled:
+                    card.update(priority=0)  # cancelled → top of the list, call now
         card["state_ar"] = STATE_AR.get(card["zr_state"], card["zr_state"])
         place = card["hub"] or card["commune"] or card["wilaya"]
         card["wa"] = (f"https://wa.me/{_wa_number(card['phone'])}?text="

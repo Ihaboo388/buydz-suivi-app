@@ -96,35 +96,66 @@ if st.session_state.get("error"):
 
 cards = st.session_state.get("cards") or []
 counts = {k: sum(c["level"] == k for c in cards) for k in LEVELS}
+n_cancel = sum(bool(c.get("cancelled")) for c in cards)
 st.markdown(f"""
 <div class="summary">
   <div style="font-weight:800;color:#1A3C2A">الطلبيات التي تحتاج متابعة</div>
-  <div>🔴 <b>{counts['day3']}</b> &nbsp; 🟠 <b>{counts['day2']}</b> &nbsp; 🟢 <b>{counts['day1']}</b>
-       &nbsp; ⚫ <b>{counts['late']}</b> &nbsp; ⚠️ <b>{counts['stuck']}</b></div>
-  <div style="color:#4A7A5A;font-size:0.85rem">ابدئي بالأحمر 🔴 ثم البرتقالي 🟠 — شركة التوصيل ترجع الطلبية بعد 3 أيام</div>
+  <div>❌ <b>{n_cancel}</b> &nbsp; 🔴 <b>{counts['day3']}</b> &nbsp; 🟠 <b>{counts['day2']}</b> &nbsp;
+       🟢 <b>{counts['day1']}</b> &nbsp; ⚫ <b>{counts['late']}</b> &nbsp; ⚠️ <b>{counts['stuck']}</b></div>
+  <div style="color:#4A7A5A;font-size:0.85rem">ابدئي بالملغاة ❌ والأحمر 🔴 ثم البرتقالي 🟠 — شركة التوصيل ترجع الطلبية بعد 3 أيام</div>
 </div>""", unsafe_allow_html=True)
 
-show_transit = st.toggle(f"إظهار الطلبيات التي لم تصل بعد للتوصيل 🚚 ({counts['transit'] + counts['missing']})",
-                         value=False)
+show_transit = st.toggle(f"إظهار الطلبيات التي لم تصل بعد للتوصيل 🚚 ({counts['transit']})", value=False)
 
-if not any(c["level"] not in ("transit", "missing") for c in cards) and not show_transit:
+if not any(c["level"] != "transit" for c in cards) and not show_transit:
     st.success("✅ لا توجد طلبيات تحتاج متابعة الآن.")
 
+
+def ring(day):
+    """Circle that fills over the 3 delivery days: green 1/3, orange 2/3, red full."""
+    color = {1: "#2E7D32", 2: "#F57C00"}.get(day, "#D32F2F" if day >= 3 else "#B0BEC5")
+    frac = min(max(day, 0), 3) / 3
+    r, circ = 26, 2 * 3.1416 * 26
+    txt = str(day) if day else "–"
+    return f"""
+    <svg width="66" height="66" viewBox="0 0 66 66" style="flex:none">
+      <circle cx="33" cy="33" r="{r}" fill="#fff" stroke="#E0E0E0" stroke-width="7"/>
+      <circle cx="33" cy="33" r="{r}" fill="none" stroke="{color}" stroke-width="7"
+              stroke-dasharray="{circ * frac:.1f} {circ:.1f}" stroke-linecap="round"
+              transform="rotate(-90 33 33)"/>
+      <text x="33" y="35" text-anchor="middle" dominant-baseline="middle"
+            font-size="20" font-weight="900" fill="{color}">{txt}</text>
+    </svg>"""
+
+
 for c in cards:
-    if c["level"] in ("transit", "missing") and not show_transit:
+    if c["level"] == "transit" and not show_transit:
         continue
     border, bg, label = LEVELS[c["level"]]
+    if c.get("cancelled"):
+        border, bg = "#B71C1C", "#FFEBEE"
     mode = f"🏢 StopDesk — {c['hub'] or c['commune']}" if c["stopdesk"] else f"🏠 للمنزل — {c['commune']}"
-    sit = f"<div class='sit'>📝 الليفرور: {c['situation_ar']}</div>" if c["situation_ar"] else ""
+    cancel = (f"<div style='background:#B71C1C;color:#fff;border-radius:8px;padding:6px 10px;"
+              f"margin:6px 0;font-weight:800'>❌ ملغاة — السبب: {c['cancel_reason'] or 'غير مذكور'}"
+              f"<br>اتصلي بالزبون فوراً قبل أن ترجع الطلبية</div>") if c.get("cancelled") else ""
+    sit = (f"<div class='sit'>📝 الليفرور: {c['situation_ar']}</div>"
+           if c["situation_ar"] and not c.get("cancelled") else "")
     last = f"<div class='last'>آخر متابعة: {c['suivi']}</div>" if c["suivi"] else ""
+    day_txt = f"اليوم {c['day']} من 3" if c.get("day") else label
     st.markdown(f"""
     <div class="card" style="background:{bg};border-right:8px solid {border}">
-        <div class="lvl" style="color:{border}">{label}</div>
-        <div class="who">#{c['order']} — {c['name']}</div>
-        <div>📦 {c['product']} &nbsp;•&nbsp; 💰 {c['price']} دج</div>
-        <div>📍 {c['wilaya']} &nbsp;•&nbsp; {mode}</div>
-        <div>🚚 {c['state_ar']} &nbsp;•&nbsp; <span style="direction:ltr">{c['tracking']}</span></div>
-        {sit}{last}
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        {ring(c.get('day') or 0)}
+        <div style="flex:1">
+          <div class="lvl" style="color:{border}">{day_txt}</div>
+          <div class="who">#{c['order']} — {c['name']}</div>
+          {cancel}
+          <div>📦 {c['product']} &nbsp;•&nbsp; 💰 {c['price']} دج</div>
+          <div>📍 {c['wilaya']} &nbsp;•&nbsp; {mode}</div>
+          <div>🚚 {c['state_ar']} &nbsp;•&nbsp; <span style="direction:ltr">{c['tracking']}</span></div>
+          {sit}{last}
+        </div>
+      </div>
     </div>""", unsafe_allow_html=True)
     a, b = st.columns(2)
     with a:
