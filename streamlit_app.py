@@ -117,7 +117,7 @@ def ring(day):
     frac = min(max(day, 0), 3) / 3
     r, circ = 26, 2 * 3.1416 * 26
     txt = str(day) if day else "–"
-    return f"""
+    return " ".join(line.strip() for line in f"""
     <svg width="66" height="66" viewBox="0 0 66 66" style="flex:none">
       <circle cx="33" cy="33" r="{r}" fill="#fff" stroke="#E0E0E0" stroke-width="7"/>
       <circle cx="33" cy="33" r="{r}" fill="none" stroke="{color}" stroke-width="7"
@@ -125,7 +125,7 @@ def ring(day):
               transform="rotate(-90 33 33)"/>
       <text x="33" y="35" text-anchor="middle" dominant-baseline="middle"
             font-size="20" font-weight="900" fill="{color}">{txt}</text>
-    </svg>"""
+    </svg>""".splitlines())
 
 
 for c in cards:
@@ -141,8 +141,10 @@ for c in cards:
     sit = (f"<div class='sit'>📝 الليفرور: {c['situation_ar']}</div>"
            if c["situation_ar"] and not c.get("cancelled") else "")
     last = f"<div class='last'>آخر متابعة: {c['suivi']}</div>" if c["suivi"] else ""
-    day_txt = f"اليوم {c['day']} من 3" if c.get("day") else label
-    st.markdown(f"""
+    d = c.get("day") or 0
+    day_txt = (f"اليوم {d} من 3" if 1 <= d <= 3 else
+               f"⚫ تجاوز 3 أيام — اليوم {d}" if d > 3 else label)
+    html = f"""
     <div class="card" style="background:{bg};border-right:8px solid {border}">
       <div style="display:flex;gap:12px;align-items:flex-start">
         {ring(c.get('day') or 0)}
@@ -156,7 +158,9 @@ for c in cards:
           {sit}{last}
         </div>
       </div>
-    </div>""", unsafe_allow_html=True)
+    </div>"""
+    # one line, no indentation: blank lines/indents would turn into Markdown code blocks
+    st.markdown(" ".join(line.strip() for line in html.splitlines()), unsafe_allow_html=True)
     a, b = st.columns(2)
     with a:
         st.link_button("📞 اتصال", c["tel"], use_container_width=True)
