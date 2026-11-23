@@ -34,8 +34,13 @@ div.stButton > button p { color:#fff !important; }
 
 # ── Access control: the app shows customer data, so it needs a password ──
 def _password_ok():
+    expected = ""
     try:
-        expected = str(st.secrets["APP_PASSWORD"]).strip()
+        if "APP_PASSWORD" in st.secrets:
+            expected = str(st.secrets["APP_PASSWORD"]).strip()
+        elif "APP_PASSWORD" in st.secrets.get("gcp_service_account", {}):
+            # added at the end of the file, i.e. inside the [gcp_service_account] section
+            expected = str(st.secrets["gcp_service_account"]["APP_PASSWORD"]).strip()
     except Exception:
         expected = ""
     if not expected:

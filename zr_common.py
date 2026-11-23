@@ -21,8 +21,9 @@ def _get_gspread_client():
     try:
         import streamlit as st
         from google.oauth2.service_account import Credentials
+        info = {k: v for k, v in dict(st.secrets["gcp_service_account"]).items() if k != "APP_PASSWORD"}
         creds = Credentials.from_service_account_info(
-            dict(st.secrets["gcp_service_account"]),
+            info,
             scopes=["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
         return gspread.authorize(creds)
     except Exception:
