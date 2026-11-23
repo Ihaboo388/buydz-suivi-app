@@ -170,6 +170,24 @@ for c in cards:
         st.link_button("📞 اتصال", c["tel"], use_container_width=True)
     with b:
         st.link_button("💬 واتساب", c["wa"], use_container_width=True)
+    if c.get("office"):
+        hours = f" • 🕗 {c['office_hours']}" if c.get("office_hours") else ""
+        addr = f"<br><span style='color:#546E7A'>{c['office_address']}</span>" if c.get("office_address") else ""
+        st.markdown(
+            f"<div style='margin:6px 16px 2px;direction:rtl;text-align:right;font-size:0.9rem;"
+            f"background:#fff;border:1px dashed #90A4AE;border-radius:10px;padding:6px 10px'>"
+            f"🏢 <b>المكتب الذي فيه الطرد:</b> {c['office']}{hours}{addr}</div>",
+            unsafe_allow_html=True)
+        o1, o2, o3 = st.columns(3)
+        with o1:
+            if c.get("office_tel"):
+                st.link_button("📞 المكتب", c["office_tel"], use_container_width=True)
+        with o2:
+            if c.get("office_wa"):
+                st.link_button("💬 واتساب المكتب", c["office_wa"], use_container_width=True)
+        with o3:
+            if c.get("office_map"):
+                st.link_button("🗺️ الموقع", c["office_map"], use_container_width=True)
     r1, r2 = st.columns([3, 1])
     with r1:
         choice = st.selectbox("نتيجة الاتصال", CALL_RESULTS, key=f"res_{c['row']}",

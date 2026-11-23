@@ -77,6 +77,33 @@ def _parse_date(value):
         return None
 
 
+def _fetch_hubs():
+    """ZR offices: {hub_id: {name, phone, phone2, street, city, hours, lat, lng}}."""
+    hubs = {}
+    for page in range(1, 6):
+        r = requests.post(f"{_base()}/hubs/search", headers=_headers(),
+                          json={"pageNumber": page, "pageSize": 100}, timeout=30)
+        if r.status_code != 200:
+            break
+        data = r.json()
+        for h in data.get("items", []):
+            phone = h.get("phone") or {}
+            addr = h.get("address") or {}
+            coords = addr.get("coordinates") or {}
+            hubs[h.get("id")] = {
+                "name": h.get("name") or "",
+                "phone": phone.get("number1") or phone.get("number2") or "",
+                "phone2": phone.get("number2") if phone.get("number2") != phone.get("number1") else "",
+                "street": addr.get("street") or "",
+                "city": addr.get("city") or addr.get("district") or "",
+                "hours": h.get("openingHours") or "",
+                "lat": coords.get("lat"), "lng": coords.get("lng"),
+            }
+        if not data.get("hasNext"):
+            break
+    return hubs
+
+
 def _fetch_parcels(oldest_date):
     """All parcels (normal + returns) created after oldest_date - 7 days."""
     limit = (oldest_date - timedelta(days=7)) if oldest_date else None

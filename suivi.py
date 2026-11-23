@@ -15,7 +15,7 @@ from urllib.parse import quote
 
 import requests
 
-from zr_common import (_get_gspread_client, _fetch_parcels, _headers, _base, _phone9,
+from zr_common import (_get_gspread_client, _fetch_parcels, _fetch_hubs, _headers, _base, _phone9,
                        _parcel_phones, _is_delivered, _is_return, _state, _parse_date, PENDING_STATE)
 
 SUIVI_HEADER = "Suivi"
@@ -161,6 +161,14 @@ def _wa_message(name, product, price, day, stopdesk, place):
     return f"{hello} {body}"
 
 
+def _office_message(tracking, name, phone, product, stopdesk):
+    ask = ("الزبون أكد لنا أنه سيأتي لاستلام الطرد من مكتبكم، من فضلكم احتفظوا به ولا ترجعوه."
+           if stopdesk else
+           "الزبون أكد لنا أنه يريد استلام الطرد، من فضلكم أعيدوا إرساله مع عامل التوصيل.")
+    return (f"السلام عليكم، معاكم {STORE_NAME} (مورد). الطرد رقم {tracking} "
+            f"للزبون {name} ({phone}) — {product}. {ask} شكراً 🙏")
+
+
 def build_suivi(sheet_name="Branded Store Orders", tab_name="Orders"):
     gc = _get_gspread_client()
     ws = gc.open(sheet_name).worksheet(tab_name)
@@ -191,6 +199,10 @@ def build_suivi(sheet_name="Branded Store Orders", tab_name="Orders"):
 
     dates = [d for d in (_parse_date(get(r, "date")) for _, r in actions) if d]
     parcels = _fetch_parcels(min(dates) if dates else None)
+    try:
+        hubs = _fetch_hubs()
+    except Exception:
+        hubs = {}
     by_trk = {p.get("trackingNumber"): p for p in parcels.values()}
     by_phone = {}
     for p in parcels.values():
@@ -248,6 +260,16 @@ def build_suivi(sheet_name="Branded Store Orders", tab_name="Orders"):
                       + quote(_wa_message(card["name"], card["product"], card["price"],
                                           card["day"], stopdesk, place)))
         card["tel"] = "tel:+" + _wa_number(card["phone"])
+        hub = hubs.get((parcel or {}).get("lastLocationHubId")) or {}
+        card["office"] = hub.get("name", "")
+        card["office_hours"] = hub.get("hours", "")
+        card["office_address"] = ", ".join(x for x in (hub.get("street"), hub.get("city")) if x)
+        o_num = _wa_number(hub.get("phone", ""))
+        card["office_tel"] = ("tel:+" + o_num) if o_num else ""
+        card["office_wa"] = (f"https://wa.me/{o_num}?text=" + quote(_office_message(
+            card["tracking"], card["name"], card["phone"], card["product"], stopdesk))) if o_num else ""
+        card["office_map"] = (f"https://www.google.com/maps?q={hub['lat']},{hub['lng']}"
+                              if hub.get("lat") and hub.get("lng") else "")
         cards.append(card)
 
     cards.sort(key=lambda c: (c["priority"], -(c["day"] or 0)))
