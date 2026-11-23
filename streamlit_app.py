@@ -24,9 +24,13 @@ html, body, [data-testid="stApp"] { background-color: #F0F7F1 !important; }
            margin:14px 16px 6px; text-align:center; direction:rtl; }
 .summary b { font-size:1.6rem; }
 .card { border-radius:12px; padding:12px 14px; margin:14px 16px 6px; direction:rtl; text-align:right; }
-.card .lvl { font-weight:900; font-size:1.05rem; }
-.card .who { font-weight:800; color:#1A3C2A; }
-.card .sit { color:#B71C1C; font-weight:700; }
+.card .lvl { font-weight:900; font-size:1.1rem; }
+.card .who { font-weight:900; color:#1A3C2A; font-size:1.15rem; }
+.card .big { font-weight:900; color:#1A3C2A; }
+.card .trk { font-weight:900; white-space:nowrap; letter-spacing:0.5px; }
+.card .trk bdi { unicode-bidi:isolate; direction:ltr; white-space:nowrap;
+                 background:#fff; border-radius:6px; padding:1px 6px; }
+.card .sit { color:#B71C1C; font-weight:800; }
 .card .last { color:#455A64; font-size:0.9rem; }
 div.stButton > button { background:#00A651 !important; color:#fff !important; font-weight:800 !important;
                         border:none !important; border-radius:8px !important; }
@@ -156,9 +160,11 @@ for c in cards:
           <div class="lvl" style="color:{border}">{day_txt}</div>
           <div class="who">#{c['order']} — {c['name']}</div>
           {cancel}
-          <div>📦 {c['product']} &nbsp;•&nbsp; 💰 {c['price']} دج</div>
-          <div>📍 {c['wilaya']} &nbsp;•&nbsp; {mode}</div>
-          <div>🚚 {c['state_ar']} &nbsp;•&nbsp; <span style="direction:ltr">{c['tracking']}</span></div>
+          <div class="big">📦 {c['product']}</div>
+          <div class="big">💰 {c['price']} دج</div>
+          <div>📍 {c['wilaya']} • {mode}</div>
+          <div>🚚 {c['state_ar']}</div>
+          <div class="trk">🔖 <bdi dir="ltr">{c['tracking']}</bdi></div>
           {sit}{last}
         </div>
       </div>
@@ -190,13 +196,16 @@ for c in cards:
                 st.link_button("🗺️ الموقع", c["office_map"], use_container_width=True)
     r1, r2 = st.columns([3, 1])
     with r1:
-        choice = st.selectbox("نتيجة الاتصال", CALL_RESULTS, key=f"res_{c['row']}",
-                              label_visibility="collapsed")
+        choice = st.selectbox("نتيجة الاتصال", CALL_RESULTS, key=f"res_{c['row']}", index=None,
+                              placeholder="— اختاري نتيجة الاتصال —", label_visibility="collapsed")
     with r2:
         if st.button("💾 حفظ", key=f"save_{c['row']}", use_container_width=True):
-            try:
-                c["suivi"] = save_call_result(c["row"], choice, SHEET, TAB)
-                st.toast(f"✅ تم الحفظ: #{c['order']}")
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ لم يتم الحفظ: {str(e)[:120]}")
+            if not choice:
+                st.toast("⚠️ اختاري نتيجة الاتصال أولاً")
+            else:
+                try:
+                    c["suivi"] = save_call_result(c["row"], choice, SHEET, TAB)
+                    st.toast(f"✅ تم الحفظ: #{c['order']}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ لم يتم الحفظ: {str(e)[:120]}")
