@@ -32,6 +32,33 @@ div.stButton > button p { color:#fff !important; }
 <div class="header-bar">📞&nbsp;&nbsp;متابعة الطلبيات — BuyDZ</div>
 """, unsafe_allow_html=True)
 
+# ── Access control: the app shows customer data, so it needs a password ──
+def _password_ok():
+    try:
+        expected = str(st.secrets["APP_PASSWORD"]).strip()
+    except Exception:
+        expected = ""
+    if not expected:
+        st.error("🔒 التطبيق غير مفعّل: أضف APP_PASSWORD في Settings → Secrets.")
+        return False
+    if st.session_state.get("auth_ok"):
+        return True
+    _, m, _ = st.columns([1, 3, 1])
+    with m:
+        pwd = st.text_input("🔒 كلمة السر", type="password")
+        if st.button("دخول", use_container_width=True):
+            import hmac
+            if hmac.compare_digest(pwd.strip(), expected):
+                st.session_state["auth_ok"] = True
+                st.rerun()
+            else:
+                st.error("❌ كلمة السر خاطئة")
+    return False
+
+
+if not _password_ok():
+    st.stop()
+
 LEVELS = {
     "day3":    ("#D32F2F", "#FFEBEE", "🔴 اليوم 3 — آخر يوم!"),
     "late":    ("#212121", "#ECEFF1", "⚫ تجاوز 3 أيام — سيرجع"),

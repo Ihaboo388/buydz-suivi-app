@@ -14,5 +14,6 @@ timestamp in the sheet's **Suivi** column.
 ## Deploy (Streamlit Community Cloud)
 1. New app → this repo → `main` → `streamlit_app.py`.
 2. Settings → Secrets: same format as `secrets.toml.example` (ZR keys + Google service account).
-3. Settings → Sharing: keep the app **private** and invite only the people who need it —
-   the app shows customer names and phone numbers.
+3. Add `APP_PASSWORD = "..."` to Secrets. The app shows customer names and phone
+   numbers, so it shows nothing until the password is entered (and nothing at all if
+   `APP_PASSWORD` is not set).
