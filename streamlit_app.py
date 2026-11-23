@@ -139,30 +139,35 @@ def ring(day):
 for c in cards:
     if c["level"] == "transit" and not show_transit:
         continue
-    border, bg, label = LEVELS[c["level"]]
-    if c.get("cancelled"):
-        border, bg = "#B71C1C", "#FFEBEE"
+    border, _bg, label = LEVELS[c["level"]]
+    bg = "#FFFFFF"  # same background for every ticket; only the ring and the edge change colour
     mode = f"🏢 StopDesk — {c['hub'] or c['commune']}" if c["stopdesk"] else f"🏠 للمنزل — {c['commune']}"
     cancel = (f"<div style='background:#B71C1C;color:#fff;border-radius:8px;padding:6px 10px;"
               f"margin:6px 0;font-weight:800'>❌ ملغاة — السبب: {c['cancel_reason'] or 'غير مذكور'}"
               f"<br>اتصلي بالزبون فوراً قبل أن ترجع الطلبية</div>") if c.get("cancelled") else ""
     sit = (f"<div class='sit'>📝 الليفرور: {c['situation_ar']}</div>"
            if c["situation_ar"] and not c.get("cancelled") else "")
-    last = f"<div class='last'>آخر متابعة: {c['suivi']}</div>" if c["suivi"] else ""
+    last = ""
+    if c["suivi"]:
+        when, _, what = c["suivi"].partition(" — ")
+        last = (f"<div class='last'>آخر متابعة: <b>{what or when}</b>"
+                + (f" <bdi dir='ltr' style='unicode-bidi:isolate'>({when})</bdi>" if what else "")
+                + "</div>")
     d = c.get("day") or 0
     day_txt = (f"اليوم {d} من 3" if 1 <= d <= 3 else
                f"⚫ تجاوز 3 أيام — اليوم {d}" if d > 3 else label)
     html = f"""
-    <div class="card" style="background:{bg};border-right:8px solid {border}">
+    <div class="card" style="background:{bg};border:2px solid {border};border-right:10px solid {border};
+         box-shadow:0 2px 10px rgba(0,0,0,0.06)">
       <div style="display:flex;gap:12px;align-items:flex-start">
         {ring(c.get('day') or 0)}
         <div style="flex:1">
           <div class="lvl" style="color:{border}">{day_txt}</div>
           <div class="who">#{c['order']} — {c['name']}</div>
           {cancel}
-          <div class="big">📦 {c['product']}</div>
+          <div class="big">📦 <bdi dir="auto">{c['product']}</bdi></div>
           <div class="big">💰 {c['price']} دج</div>
-          <div>📍 {c['wilaya']} • {mode}</div>
+          <div>📍 <bdi dir="auto">{c['wilaya']}</bdi> • {mode}</div>
           <div>🚚 {c['state_ar']}</div>
           <div class="trk">🔖 <bdi dir="ltr">{c['tracking']}</bdi></div>
           {sit}{last}
